@@ -14,10 +14,20 @@ from multi_read_data import MemoryFriendlyLoader
 parser = argparse.ArgumentParser("SCI")
 parser.add_argument('--data_path', type=str, default='./data/medium',
                     help='location of the data corpus')
-parser.add_argument('--save_path', type=str, default='./results/medium', help='location of the data corpus')
-parser.add_argument('--model', type=str, default='./weights/medium.pt', help='location of the data corpus')
+parser.add_argument('--save_path', type=str,
+                    default='./results/medium', help='location of the data corpus')
+parser.add_argument('--model', type=str, default='./weights/medium.pt',
+                    help='location of the data corpus')
 parser.add_argument('--gpu', type=int, default=0, help='gpu device id')
 parser.add_argument('--seed', type=int, default=2, help='random seed')
+parser.add_argument('--denoise', action='store_true',
+                    help='apply self-guided filter to suppress noise amplified by Retinex division')
+parser.add_argument('--denoise_radius', type=int, default=4,
+                    help='guided filter window radius')
+parser.add_argument('--denoise_eps', type=float, default=1e-3,
+                    help='guided filter regularization')
+parser.add_argument('--fuse_bn', action='store_true',
+                    help='fold BatchNorm into Conv for faster inference')
 
 args = parser.parse_args()
 save_path = args.save_path
@@ -33,7 +43,8 @@ test_queue = torch.utils.data.DataLoader(
 def save_images(tensor, path):
     image_numpy = tensor[0].cpu().float().numpy()
     image_numpy = (np.transpose(image_numpy, (1, 2, 0)))
-    im = Image.fromarray(np.clip(image_numpy * 255.0, 0, 255.0).astype('uint8'))
+    im = Image.fromarray(
+        np.clip(image_numpy * 255.0, 0, 255.0).astype('uint8'))
     im.save(path, 'png')
 
 
@@ -42,10 +53,17 @@ def main():
         print('no gpu device available')
         sys.exit(1)
 
-    model = Finetunemodel(args.model)
+    model = Finetunemodel(
+        args.model,
+        denoise=args.denoise,
+        denoise_radius=args.denoise_radius,
+        denoise_eps=args.denoise_eps,
+    )
     model = model.cuda()
 
     model.eval()
+    if args.fuse_bn:
+        model.fuse()
     with torch.no_grad():
         for _, (input, image_name) in enumerate(test_queue):
             input = Variable(input, volatile=True).cuda()
@@ -55,7 +73,6 @@ def main():
             print('processing {}'.format(u_name))
             u_path = save_path + '/' + u_name
             save_images(r, u_path)
-
 
 
 if __name__ == '__main__':

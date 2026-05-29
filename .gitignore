@@ -1,0 +1,7 @@
+./*.png
+./*jpg
+CVPR/train/easy/*.png
+CVPR/train/easy/*jpg
+CVPR/train/medium/*.jpg
+__pycache__
+EXP
