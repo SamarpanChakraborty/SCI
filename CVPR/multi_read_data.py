@@ -30,6 +30,10 @@ class MemoryFriendlyLoader(torch.utils.data.Dataset):
 
     def load_images_transform(self, file):
         im = Image.open(file).convert('RGB')
+        # Resize image to ensure it's at least batch_h x batch_w
+        if im.size[0] < batch_w or im.size[1] < batch_h:
+            im = im.resize((max(batch_w, im.size[0]), max(
+                batch_h, im.size[1])), Image.BILINEAR)
         img_norm = self.transform(im).numpy()
         img_norm = np.transpose(img_norm, (1, 2, 0))
         return img_norm
@@ -41,11 +45,11 @@ class MemoryFriendlyLoader(torch.utils.data.Dataset):
         h = low.shape[0]
         w = low.shape[1]
         #
-        h_offset = random.randint(0, max(0, h - batch_h - 1))
-        w_offset = random.randint(0, max(0, w - batch_w - 1))
+        h_offset = random.randint(0, max(0, h - batch_h))
+        w_offset = random.randint(0, max(0, w - batch_w))
         #
-        # if self.task != 'test':
-        #     low = low[h_offset:h_offset + batch_h, w_offset:w_offset + batch_w]
+        if self.task != 'test':
+            low = low[h_offset:h_offset + batch_h, w_offset:w_offset + batch_w]
 
         low = np.asarray(low, dtype=np.float32)
         low = np.transpose(low[:, :, :], (2, 0, 1))
